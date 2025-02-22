@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Speech Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+            min-height: 150px;
+            font-size: 16px;
+        }
+
+        .settings {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .audio-player {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        #error {
+            color: red;
+            margin-top: 1rem;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Text to Speech Generator</h1>
+        
+        <div class="input-group">
+            <label for="text-input">Enter your text:</label>
+            <textarea id="text-input" placeholder="Type or paste your text here..."></textarea>
+        </div>
+
+        <div class="settings">
+            <div class="input-group">
+                <label for="voice-select">Select Voice:</label>
+                <select id="voice-select"></select>
+            </div>
+            
+            <div class="input-group">
+                <label for="stability">Stability:</label>
+                <input type="range" id="stability" min="0" max="1" step="0.1" value="0.5">
+            </div>
+        </div>
+
+        <button id="generate-btn">Generate Speech</button>
+        <div id="error"></div>
+        
+        <div class="audio-player">
+            <audio id="audio-player" controls style="display: none;"></audio>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_KEY = 'sk_e5e8070def3ecbfa0349bcc9e4d08421ceb90f4ef1482a7f'; // Replace with your API key
+        const API_URL = 'https://api.elevenlabs.io/v1';
+
+        // DOM Elements
+        const voiceSelect = document.getElementById('voice-select');
+        const generateBtn = document.getElementById('generate-btn');
+        const textInput = document.getElementById('text-input');
+        const audioPlayer = document.getElementById('audio-player');
+        const errorElement = document.getElementById('error');
+        const stabilityInput = document.getElementById('stability');
+
+        // Load voices on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch(`${API_URL}/voices`, {
+                    headers: {
+                        'xi-api-key': API_KEY
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch voices');
+                
+                const data = await response.json();
+                populateVoices(data.voices);
+            } catch (error) {
+                showError(error.message);
+            }
+        });
+
+        // Generate speech when button is clicked
+        generateBtn.addEventListener('click', async () => {
+            const text = textInput.value.trim();
+            const voiceId = voiceSelect.value;
+            const stability = stabilityInput.value;
+
+            if (!text) return showError('Please enter some text');
+            if (!voiceId) return showError('Please select a voice');
+
+            try {
+                generateBtn.disabled = true;
+                generateBtn.textContent = 'Generating...';
+
+                const response = await fetch(`${API_URL}/text-to-speech/${voiceId}`, {
+                    method: 'POST',
+                    headers: {
+                        'xi-api-key': API_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text,
+                        voice_settings: {
+                            stability: parseFloat(stability),
+                            similarity_boost: 0.75
+                        }
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to generate speech');
+
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                audioPlayer.src = audioUrl;
+                audioPlayer.style.display = 'block';
+                errorElement.style.display = 'none';
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'Generate Speech';
+            }
+        });
+
+        // Helper functions
+        function populateVoices(voices) {
+            voiceSelect.innerHTML = voices
+                .map(voice => `<option value="${voice.voice_id}">${voice.name}</option>`)
+                .join('');
+        }
+
+        function showError(message) {
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            audioPlayer.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
